@@ -1,0 +1,41 @@
+{
+  "name": "python-lambda",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.flake8",
+        "ms-python.isort",
+        "GitHub.vscode-pull-request-github"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.linting.enabled": true,
+        "python.linting.flake8Enabled": true,
+        "python.formatting.provider": "black",
+        "editor.formatOnSave": true
+      }
+    }
+  },
+  "runArgs": [
+    "-u"
+  ],
+  "remoteUser": "vscode",
+  "workspaceFolder": "/workspaces/python-lambda",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/python-lambda,type=bind,consistency=cached",
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.13",
+      "installPip": true,
+      "installPipx": false,
+      "installNode": false
+    }
+  },
+  "postCreateCommand": "chmod +x .devcontainer/setup.sh && ./.devcontainer/setup.sh",
+  "initializeCommand": "python3 --version && pip3 --version"
+}
