@@ -1,0 +1,4 @@
+# This project uses only the Python standard library.
+#
+# boto3 is provided by the AWS Lambda runtime and must NOT be bundled into
+# pip-modules. No third-party packages are required for local runs or tests.

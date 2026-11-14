@@ -1,0 +1,1 @@
+"""External adapter unit tests."""
