@@ -98,23 +98,114 @@ zip -r ../<project>.zip src pip-modules
 
 ---
 
-## Console Invocation / Test from Console
+## AWS Deployment & Console Testing
 
-After deploying a Lambda to AWS, you can invoke and test it from the AWS Console, CLI, or any HTTP client. This section shows how to test **once deployed**.
+Once deployed to AWS, you can invoke and test your Lambda from the **AWS Console**, CLI, or any HTTP client. This section covers the full flow: configure credentials, deploy, test in Console.
 
-### AWS Console
+### Prerequisites
 
-1. Open the Lambda function in the [AWS Console](https://console.aws.amazon.com/lambda/)
-2. Select the function → **Test** tab
-3. Create a new test event (JSON) using one of the event formats below
-4. Click **Test** to invoke and see the response + logs
+1. **AWS account** with IAM permissions for Lambda, DynamoDB, S3, Secrets Manager, API Gateway.
+2. **AWS CLI v2** installed and configured with access key + secret key + region.
+3. **Python 3.13** (or 3.12) available locally.
+4. **zip** utility installed.
 
-### AWS CLI
+### Configure AWS Credentials
 
 ```bash
-# Get function name (replace with your deployed name)
+# Option A: aws configure (writes ~/.aws/credentials)
+aws configure
+
+# AWS Access Key ID [None]: <your-access-key>
+# AWS Secret Access Key [None]: <your-secret-key>
+# Default region name [None]: us-east-1
+# Default output format [None]: json
+
+# Option B: environment variables (for CI / ephemeral)
+export AWS_ACCESS_KEY_ID=<your-access-key>
+export AWS_SECRET_ACCESS_KEY=<your-secret-key>
+export AWS_DEFAULT_REGION=us-east-1
+
+# Verify
+aws sts get-caller-identity
+```
+
+### Deploy a Lambda
+
+```bash
+cd <project-name>  # e.g. calc-python-lambda
+
+# 1. Build deployment package (exclude test/, infra/, README.md)
+zip -r ../calc-python-lambda.zip src pip-modules
+
+# 2. Create IAM execution role (one-time per project)
+aws iam create-role \
+  --role-name calc-lambda-execution \
+  --assume-role-policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [{
+      "Effect": "Allow",
+      "Principal": { "Service": "lambda.amazonaws.com" },
+      "Action": "sts:AssumeRole"
+    }]
+  }'
+
+# 3. Attach basic Lambda execution policy (CloudWatch logs)
+aws iam attach-role-policy \
+  --role-name calc-lambda-execution \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+# 4. Create the Lambda function
+aws lambda create-function \
+  --function-name calc-python-lambda \
+  --runtime python3.13 \
+  --handler src.lambda_function.lambda_handler \
+  --role arn:aws:iam::<ACCOUNT_ID>:role/calc-lambda-execution \
+  --zip-file fileb://../calc-python-lambda.zip \
+  --timeout 30 \
+  --memory-size 128 \
+  --environment "Variables={LOG_LEVEL=DEBUG,ENVIRONMENT=production}"
+
+# 5. (Optional) Add API Gateway for HTTP access
+# See infra/README.md for SAM/CDK or manual API Gateway setup
+```
+
+### Deploy via AWS Console (Manual)
+
+If you prefer the Console over CLI:
+
+1. Go to [AWS Lambda Console](https://console.aws.amazon.com/lambda/)
+2. Click **Create function** → **Author from scratch**
+3. Name: `calc-python-lambda`, Runtime: `Python 3.13`, Architecture: `arm64`
+4. Permissions → **Create a new role** with basic Lambda permissions
+5. Click **Create function**
+6. **Code** tab → **Upload from** → **.zip file** → select `calc-python-lambda.zip`
+7. **Handler**: `src.lambda_function.lambda_handler`
+8. **Configuration** → **General configuration** → **Edit** → Memory: 128 MB, Timeout: 30s
+9. **Configuration** → **Environment variables** → Add: `LOG_LEVEL=DEBUG`, `ENVIRONMENT=production`
+10. Click **Save**
+
+### Test from AWS Console
+
+1. Open the function in the [Lambda Console](https://console.aws.amazon.com/lambda/)
+2. Select the function → **Test** tab
+3. Click **Create new event** → **Event template** → **Hello World** (or custom)
+4. Replace the JSON with your test event, e.g.:
+
+   ```json
+   { "operation": "add", "a": 10, "b": 5 }
+   ```
+
+5. Name the test (e.g. `test-add`) and click **Save**
+6. Click **Test** to invoke
+7. View results in **Execution results** tab:
+   - `statusCode`: 200, 400, 404, or 502
+   - `body`: JSON string with result or error
+
+### Test from AWS CLI
+
+```bash
 aws lambda invoke \
-  --function-name <your-function-name> \
+  --function-name calc-python-lambda \
   --payload '{"operation": "add", "a": 10, "b": 5}' \
   --cli-binary-format raw-in-base64-out \
   response.json
@@ -122,9 +213,9 @@ aws lambda invoke \
 cat response.json
 ```
 
-### cURL (via API Gateway)
+### Test via API Gateway (HTTP)
 
-If you have an API Gateway in front:
+If you set up an API Gateway (see `infra/README.md` in each project):
 
 ```bash
 curl -X POST https://<api-id>.execute-api.<region>.amazonaws.com/<stage>/ \
@@ -132,10 +223,16 @@ curl -X POST https://<api-id>.execute-api.<region>.amazonaws.com/<stage>/ \
   -d '{"operation": "add", "a": 10, "b": 5}'
 ```
 
-### Event Formats (per project)
+### View Logs
 
-| Project | Operation | Example Event |
-|---------|-----------|---------------|
+1. Lambda function → **Monitor** tab → **View CloudWatch logs**
+2. Log group: `/aws/lambda/<function-name>`
+3. Each invocation logs: request ID, operation, response status (DEBUG level)
+
+### Console Test Events (per project)
+
+| Project | Operation | Test Event |
+|---------|-----------|------------|
 | calc-python-lambda | `add`, `sub`, `mul`, `div` | `{"operation": "add", "a": 10, "b": 5}` |
 | string-utils-python-lambda | `upper`, `lower`, `reverse`, `concat` | `{"operation": "upper", "a": "hello", "b": ""}` |
 | order-service-python-lambda | `create-order`, `get-order` | `{"operation": "create-order", "order_id": "A1", "customer": "Sri", "amount": 99.5}` |
@@ -155,11 +252,36 @@ All projects return **Lambda proxy integration** format:
 - `statusCode`: 200 (success), 400 (validation error), 404 (not found), 502 (integration error)
 - `body`: JSON **string** containing `{"operation": "<op>", "result": <value>}` or `{"error": "<message>"}`
 
-### View Logs in Console
+### Update a Deployed Function
 
-1. Lambda function → **Monitor** tab → **View CloudWatch logs**
-2. Log group: `/aws/lambda/<function-name>`
-3. Each invocation logs: request ID, operation, response status (DEBUG level)
+```bash
+# Rebuild zip and update code
+zip -r ../calc-python-lambda.zip src pip-modules
+
+aws lambda update-function-code \
+  --function-name calc-python-lambda \
+  --zip-file fileb://../calc-python-lambda.zip
+```
+
+### Delete a Function (cleanup)
+
+```bash
+aws lambda delete-function --function-name calc-python-lambda
+aws iam detach-role-policy \
+  --role-name calc-lambda-execution \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+aws iam delete-role --role-name calc-lambda-execution
+```
+
+### Environment Variables (set per project)
+
+| Project | Variables |
+|---------|-----------|
+| calc-python-lambda | `LOG_LEVEL`, `ENVIRONMENT` |
+| string-utils-python-lambda | `LOG_LEVEL`, `ENVIRONMENT` |
+| order-service-python-lambda | `AWS_REGION`, `TABLE_NAME`, `BUCKET_NAME`, `SECRET_SERVER_URL`, `SECRET_SERVER_TOKEN`, `LOG_LEVEL`, `ENVIRONMENT` |
+
+See each project's `infra/README.md` for SAM/CDK or Terraform options.
 
 ---
 

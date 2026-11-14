@@ -281,6 +281,19 @@ error cases, run-all, CloudWatch, troubleshooting.
 - Handler: `src.lambda_function.lambda_handler`. Runtime Python 3.13/3.12,
   architecture `arm64`/`x86_64`, memory 128 MB.
 
+### Deploy to AWS
+
+- Configure credentials (CLI or env):
+  - `aws configure` (writes `~/.aws/credentials`)
+  - or `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`
+- IAM: execution role with `AWSLambdaBasicExecutionRole` (+ service-specific
+  permissions for the adapter usage).
+- Create/update function:
+  - `aws lambda create-function` / `aws lambda update-function-code` with
+    `--runtime python3.13 --handler src.lambda_function.lambda_handler`
+  - Environment variables per project (no hard-coded secrets; use
+    Secrets Manager / env vars).
+
 ---
 
 ## 14. Verification checklist
