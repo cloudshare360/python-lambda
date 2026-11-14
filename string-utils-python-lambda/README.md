@@ -171,6 +171,52 @@ clean.
 To build a Lambda Layer, zip the contents of `pip-modules/` under a `python/`
 folder.
 
+## Invoke & Test from AWS Console
+
+Once deployed, test the function directly.
+
+### AWS Console
+
+1. Open the function in the [Lambda Console](https://console.aws.amazon.com/lambda/)
+2. Go to **Test** tab → **Create new event**
+3. Paste an event, e.g. `{"operation": "upper", "a": "hello", "b": ""}`
+4. Click **Test** — response appears under *Execution results*
+
+### AWS CLI
+
+```bash
+aws lambda invoke \
+  --function-name string-utils-python-lambda \
+  --payload '{"operation": "upper", "a": "hello", "b": ""}' \
+  --cli-binary-format raw-in-base64-out \
+  response.json && cat response.json
+```
+
+### Expected response
+
+```json
+{
+  "statusCode": 200,
+  "headers": { "Content-Type": "application/json" },
+  "body": "{\"operation\": \"upper\", \"result\": \"HELLO\"}"
+}
+```
+
+Error cases return `statusCode` 400 with body `{"error": "<message>"}`.
+
+### Console test events
+
+| Operation | Test event |
+|-----------|-----------|
+| upper | `{"operation": "upper", "a": "hello", "b": ""}` |
+| lower | `{"operation": "lower", "a": "HELLO", "b": ""}` |
+| reverse | `{"operation": "reverse", "a": "abc", "b": ""}` |
+| concat | `{"operation": "concat", "a": "foo", "b": "bar"}` |
+| unknown op | `{"operation": "pow", "a": 10, "b": 5}` |
+| missing field | `{"operation": "upper", "a": "hello"}` |
+
+Logs: **Monitor** tab → **View CloudWatch logs** → log group `/aws/lambda/string-utils-python-lambda`.
+
 ## Deployment
 
 - Handler: `src.lambda_function.lambda_handler`

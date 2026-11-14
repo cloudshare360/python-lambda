@@ -156,6 +156,53 @@ contains a README. Both `src/lambda_function.py` and `test/run_all.py` add the
 project root and `pip-modules` to `sys.path`, and route bytecode caches to
 `pip-modules/.pycache`.
 
+## Invoke & Test from AWS Console
+
+Once deployed, test the function without any local setup.
+
+### AWS Console
+
+1. Open the function in the [Lambda Console](https://console.aws.amazon.com/lambda/)
+2. Go to **Test** tab → **Create new event**
+3. Paste an event, e.g. `{"operation": "add", "a": 10, "b": 5}`
+4. Click **Test** — the response appears under *Execution results*
+
+### AWS CLI
+
+```bash
+aws lambda invoke \
+  --function-name calc-python-lambda \
+  --payload '{"operation": "add", "a": 10, "b": 5}' \
+  --cli-binary-format raw-in-base64-out \
+  response.json && cat response.json
+```
+
+### Expected response
+
+```json
+{
+  "statusCode": 200,
+  "headers": { "Content-Type": "application/json" },
+  "body": "{\"operation\": \"add\", \"result\": 15}"
+}
+```
+
+Error cases return `statusCode` 400 with body `{"error": "<message>"}`.
+
+### Console test events
+
+| Operation | Test event |
+|-----------|-----------|
+| add | `{"operation": "add", "a": 10, "b": 5}` |
+| sub | `{"operation": "sub", "a": 10, "b": 5}` |
+| mul | `{"operation": "mul", "a": 10, "b": 5}` |
+| div | `{"operation": "div", "a": 10, "b": 4}` |
+| div by zero | `{"operation": "div", "a": 10, "b": 0}` |
+| unknown op | `{"operation": "pow", "a": 10, "b": 5}` |
+| missing field | `{"operation": "add", "a": 10}` |
+
+Logs: **Monitor** tab → **View CloudWatch logs** → log group `/aws/lambda/calc-python-lambda`.
+
 ## Deployment
 
 Package `src/` and `pip-modules/` at the archive root (exclude `test/`,

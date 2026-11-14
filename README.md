@@ -98,6 +98,71 @@ zip -r ../<project>.zip src pip-modules
 
 ---
 
+## Console Invocation / Test from Console
+
+After deploying a Lambda to AWS, you can invoke and test it from the AWS Console, CLI, or any HTTP client. This section shows how to test **once deployed**.
+
+### AWS Console
+
+1. Open the Lambda function in the [AWS Console](https://console.aws.amazon.com/lambda/)
+2. Select the function → **Test** tab
+3. Create a new test event (JSON) using one of the event formats below
+4. Click **Test** to invoke and see the response + logs
+
+### AWS CLI
+
+```bash
+# Get function name (replace with your deployed name)
+aws lambda invoke \
+  --function-name <your-function-name> \
+  --payload '{"operation": "add", "a": 10, "b": 5}' \
+  --cli-binary-format raw-in-base64-out \
+  response.json
+
+cat response.json
+```
+
+### cURL (via API Gateway)
+
+If you have an API Gateway in front:
+
+```bash
+curl -X POST https://<api-id>.execute-api.<region>.amazonaws.com/<stage>/ \
+  -H "Content-Type: application/json" \
+  -d '{"operation": "add", "a": 10, "b": 5}'
+```
+
+### Event Formats (per project)
+
+| Project | Operation | Example Event |
+|---------|-----------|---------------|
+| calc-python-lambda | `add`, `sub`, `mul`, `div` | `{"operation": "add", "a": 10, "b": 5}` |
+| string-utils-python-lambda | `upper`, `lower`, `reverse`, `concat` | `{"operation": "upper", "a": "hello", "b": ""}` |
+| order-service-python-lambda | `create-order`, `get-order` | `{"operation": "create-order", "order_id": "A1", "customer": "Sri", "amount": 99.5}` |
+
+### Expected Response Format
+
+All projects return **Lambda proxy integration** format:
+
+```json
+{
+  "statusCode": 200,
+  "headers": { "Content-Type": "application/json" },
+  "body": "{\"operation\": \"add\", \"result\": 15}"
+}
+```
+
+- `statusCode`: 200 (success), 400 (validation error), 404 (not found), 502 (integration error)
+- `body`: JSON **string** containing `{"operation": "<op>", "result": <value>}` or `{"error": "<message>"}`
+
+### View Logs in Console
+
+1. Lambda function → **Monitor** tab → **View CloudWatch logs**
+2. Log group: `/aws/lambda/<function-name>`
+3. Each invocation logs: request ID, operation, response status (DEBUG level)
+
+---
+
 ## Generating New Lambda-Python Projects
 
 ### Option 1 — Manual scaffold (recommended for first time)

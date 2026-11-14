@@ -246,7 +246,8 @@ python3 src/lambda_function.py test/events/event-create-order.json
 
 `README.md`: overview, folder tree, layer explanation, event format, local run
 (`python3 src/lambda_function.py`), per-flow run, unit tests (`python3
-test/run_all.py`), adding a flow, pip-modules/layer, deployment.
+test/run_all.py`), **console invocation (AWS Console, CLI, cURL)**, adding a flow,
+pip-modules/layer, deployment.
 
 `test/README.md` and `test/events/README.md`: prerequisites, call chain,
 event↔test mapping table, per-case commands with expected response + logs,
@@ -289,10 +290,20 @@ error cases, run-all, CloudWatch, troubleshooting.
 3. `python3 test/run_all.py` → all unit tests pass, **no AWS calls**.
 4. DEBUG logs appear for controller, handler, service, adapters.
 5. Exit code 0.
+6. **After deployment**: AWS Console Test tab, `aws lambda invoke`, and cURL all
+   return the same expected response as local runs.
 
----
+## 15. Console invocation (post-deployment)
 
-## 15. Deliverables
+Every project README must document how to invoke the deployed Lambda:
+
+- **AWS Console**: function → **Test** tab → create event → **Test**
+- **AWS CLI**: `aws lambda invoke --function-name <name> --payload '<event>' --cli-binary-format raw-in-base64-out response.json`
+- **cURL** (if API Gateway front): `curl -X POST <url> -H "Content-Type: application/json" -d '<event>'`
+- **Response format**: Lambda proxy integration — `{"statusCode": 200|400|404|502, "headers": {"Content-Type": "application/json"}, "body": "<JSON string>"}`
+- **Logs**: AWS Console → **Monitor** → **View CloudWatch logs** → log group `/aws/lambda/<function-name>`
+
+## 16. Deliverables
 
 - `README.md`, `requirements.txt`
 - `src/lambda_function.py`, `src/config/`, `src/common/`, `src/handlers/`,

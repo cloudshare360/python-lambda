@@ -195,6 +195,50 @@ pip3 install <package> -t order-service-python-lambda/pip-modules
 `boto3` is provided by the Lambda runtime and must **not** be bundled here. This
 project otherwise uses only the Python standard library.
 
+## Invoke & Test from AWS Console
+
+Once deployed, test the function without local setup.
+
+### AWS Console
+
+1. Open the function in the [Lambda Console](https://console.aws.amazon.com/lambda/)
+2. Go to **Test** tab → **Create new event**
+3. Paste an event, e.g. `{"operation":"create-order","order_id":"A1","customer":"Sri","amount":99.5}`
+4. Click **Test** — response and logs appear under *Execution results*
+
+### AWS CLI
+
+```bash
+aws lambda invoke \
+  --function-name order-service-python-lambda \
+  --payload '{"operation":"create-order","order_id":"A1","customer":"Sri","amount":99.5}' \
+  --cli-binary-format raw-in-base64-out \
+  response.json && cat response.json
+```
+
+### Expected response (create-order)
+
+```json
+{
+  "statusCode": 200,
+  "headers": { "Content-Type": "application/json" },
+  "body": "{\"operation\": \"create-order\", \"order_id\": \"A1\", \"status\": \"created\", \"invoice\": \"<s3-url>\"}"
+}
+```
+
+Error cases: 400 with `{"error": "..."}`, 404 with `{"error": "Order not found: <id>"}`, 502 with `{"error": "<integration message>"}`.
+
+### Console test events
+
+| Operation | Test event |
+|-----------|-----------|
+| create-order | `{"operation":"create-order","order_id":"A1","customer":"Sri","amount":99.5}` |
+| get-order | `{"operation":"get-order","order_id":"A1"}` |
+| unknown operation | `{"operation":"pow","order_id":"A1"}` |
+| missing fields | `{"operation":"create-order"}` |
+
+Logs: **Monitor** tab → **View CloudWatch logs** → log group `/aws/lambda/order-service-python-lambda`.
+
 ## Deployment
 
 - **Handler:** `src.lambda_function.lambda_handler`
