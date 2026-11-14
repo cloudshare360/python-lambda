@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+pip-modules/*
+!pip-modules/README.md
+!pip-modules/.gitignore
+.env
